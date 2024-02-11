@@ -1,50 +1,52 @@
-import { Client } from "@notionhq/client";
-import {
-  DatabaseObjectResponse,
-  PageObjectResponse,
-} from "@notionhq/client/build/src/api-endpoints";
-import { title } from "process";
+import React from "react";
+import styles from "../styles/Home.module.css";
+import { Papershelf, getData } from "../lib/notion/papershelf";
 
-// Initializing a client
-const notion = new Client({
-  auth: process.env.NOTION_TOKEN,
-});
+const PaperShelf = async () => {
+  const papershelf = await getData();
+  // Group papers
+  const groupedPapers = groupPapersByCategory(papershelf);
 
-export const getData = async () => {
-  const response = await notion.databases.query({
-    database_id: process.env.NOTION_DATABASE_ID_PAPERSHELF!!,
-  });
-  return toPaperShelf(response.results as any);
+  return (
+    <div className={styles.container}>
+      <section className="s1">
+        <h2>Papershelf</h2>
+        {Object.entries(groupedPapers).map(([category, papers]) => (
+          <div key={category}>
+            <h3>{category}</h3>
+            <ul>
+              {papers.map((paper, index) => (
+                <li key={index}>
+                  {paper.url ? (
+                    <a
+                      href={paper.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {paper.title}
+                    </a>
+                  ) : (
+                    paper.title
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
+    </div>
+  );
 };
 
-const toPaperShelf = (dbResult: PageObjectResponse[]): Papershelf[] => {
-  return dbResult
-    .map((result) => {
-      const properties = result.properties;
-
-      const title =
-        (properties.Title as NotionTitleProperty).title[0]?.plain_text || "";
-      const url = (properties.Link as NotionUrlProperty).url;
-      return { title, url, category: "Programming" } as Papershelf;
-    })
-    .filter((item) => item.title != "");
+const groupPapersByCategory = (papers: Papershelf[]) => {
+  return papers.reduce((acc, paper) => {
+    const { category } = paper;
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(paper);
+    return acc;
+  }, {} as Record<string, Papershelf[]>);
 };
 
-interface PapershelfDb extends DatabaseObjectResponse {}
-
-export interface Papershelf {
-  title: string;
-  url: string | null;
-  category: string;
-}
-
-interface NotionTitleProperty {
-  type: "title";
-  title: { plain_text: string }[];
-  id: string;
-}
-
-interface NotionUrlProperty {
-  type: "url";
-  url: string | null;
-}
+export default PaperShelf;
